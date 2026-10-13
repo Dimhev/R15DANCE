@@ -56,16 +56,21 @@ centerStroke.Parent = centerButton
 
 local emoteWheel = {}
 local activeTrack = nil
+local activeSound = nil
 
 local function stopActiveEmote()
 	if activeTrack then
 		activeTrack:Stop(0.15)
 		activeTrack = nil
 	end
+	if activeSound then
+		activeSound:Stop()
+		activeSound:Destroy()
+		activeSound = nil
+	end
 end
 
 local function playEmoteAnim(animId)
-	stopActiveEmote()
 	local character = localPlayer.Character
 	if not character then return end
 	local humanoid = character:FindFirstChild("Humanoid")
@@ -103,14 +108,14 @@ local function renderSlots(emotesList)
 
 		local slot = Instance.new("TextButton")
 		slot.Name = "EmoteSlot"
-		slot.Size = UDim2.new(0, 92, 0, 42)
+		slot.Size = UDim2.new(0, 110, 0, 42)
 		slot.Position = UDim2.new(0.5, posX, 0.5, posY)
 		slot.AnchorPoint = Vector2.new(0.5, 0.5)
 		slot.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
 		slot.TextColor3 = Color3.fromRGB(240, 240, 245)
 		slot.Text = data.name or ("Slot " .. tostring(index))
 		slot.Font = Enum.Font.GothamMedium
-		slot.TextSize = 13
+		slot.TextSize = 12
 		slot.AutoButtonColor = false
 		slot.Parent = wheelFrame
 
@@ -126,7 +131,7 @@ local function renderSlots(emotesList)
 		slot.MouseEnter:Connect(function()
 			tweenService:Create(slot, tweenInfo, {
 				BackgroundColor3 = Color3.fromRGB(65, 70, 95),
-				Size = UDim2.new(0, 98, 0, 46)
+				Size = UDim2.new(0, 116, 0, 46)
 			}):Play()
 			tweenService:Create(stroke, tweenInfo, {
 				Color = Color3.fromRGB(130, 140, 190)
@@ -136,7 +141,7 @@ local function renderSlots(emotesList)
 		slot.MouseLeave:Connect(function()
 			tweenService:Create(slot, tweenInfo, {
 				BackgroundColor3 = Color3.fromRGB(30, 30, 38),
-				Size = UDim2.new(0, 92, 0, 42)
+				Size = UDim2.new(0, 110, 0, 42)
 			}):Play()
 			tweenService:Create(stroke, tweenInfo, {
 				Color = Color3.fromRGB(55, 55, 70)
@@ -144,10 +149,12 @@ local function renderSlots(emotesList)
 		end)
 
 		slot.MouseButton1Click:Connect(function()
+			stopActiveEmote()
+			if data.animId then
+				playEmoteAnim(data.animId)
+			end
 			if data.callback then
 				data.callback()
-			elseif data.animId then
-				playEmoteAnim(data.animId)
 			end
 			wheelFrame.Visible = false
 		end)
@@ -170,6 +177,9 @@ centerButton.MouseButton1Click:Connect(function()
 end)
 
 userInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.Space then
+		stopActiveEmote()
+	end
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.G then
 		toggleWheel()
@@ -192,15 +202,17 @@ function emoteWheel.destroy()
 	screenGui:Destroy()
 end
 
-local defaultEmotes = {
-	{ name = "Wave", animId = 507770239 },
-	{ name = "Point", animId = 507770453 },
-	{ name = "Cheer", animId = 507770677 },
-	{ name = "Laugh", animId = 507770818 },
-	{ name = "Dance 1", animId = 507771019 },
-	{ name = "Dance 2", animId = 507771957 }
+local initialEmotes = {
+	{
+		name = "California Girls",
+		animId = 111281033685433
+	},
+	{
+		name = "Gangnam Style",
+		animId = 118644064755644
+	}
 }
 
-renderSlots(defaultEmotes)
+renderSlots(initialEmotes)
 
 return emoteWheel
