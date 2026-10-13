@@ -56,21 +56,16 @@ centerStroke.Parent = centerButton
 
 local emoteWheel = {}
 local activeTrack = nil
-local activeSound = nil
 
 local function stopActiveEmote()
 	if activeTrack then
 		activeTrack:Stop(0.15)
 		activeTrack = nil
 	end
-	if activeSound then
-		activeSound:Stop()
-		activeSound:Destroy()
-		activeSound = nil
-	end
 end
 
 local function playEmoteAnim(animId)
+	stopActiveEmote()
 	local character = localPlayer.Character
 	if not character then return end
 	local humanoid = character:FindFirstChild("Humanoid")
@@ -98,6 +93,8 @@ end
 local function renderSlots(emotesList)
 	clearWheel()
 	local totalSlots = #emotesList
+	if totalSlots == 0 then return end
+
 	local radius = 135
 	local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -149,12 +146,8 @@ local function renderSlots(emotesList)
 		end)
 
 		slot.MouseButton1Click:Connect(function()
-			stopActiveEmote()
 			if data.animId then
 				playEmoteAnim(data.animId)
-			end
-			if data.callback then
-				data.callback()
 			end
 			wheelFrame.Visible = false
 		end)
@@ -201,18 +194,5 @@ end
 function emoteWheel.destroy()
 	screenGui:Destroy()
 end
-
-local initialEmotes = {
-	{
-		name = "California Girls",
-		animId = 111281033685433
-	},
-	{
-		name = "Gangnam Style",
-		animId = 118644064755644
-	}
-}
-
-renderSlots(initialEmotes)
 
 return emoteWheel
