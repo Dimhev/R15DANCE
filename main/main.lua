@@ -9,6 +9,10 @@ local danceList = {
 	{
 		name = "Gangnam Style",
 		animId = 118644064755644
+	},
+	{
+		name = "Thanos Shuffle",
+		animId = 123176416564243
 	}
 }
 
