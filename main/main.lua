@@ -15,8 +15,8 @@ local danceList = {
 		animId = 123176416564243
 	},
 	{
-		name = "Invisible",
-		animId = 72675993856360
+		name = "Tenna Dance",
+		animId = 115605836623904
 	}
 }
 
