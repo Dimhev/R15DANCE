@@ -2,6 +2,7 @@ local players = game:GetService("Players")
 local coreGui = game:GetService("CoreGui")
 local tweenService = game:GetService("TweenService")
 local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
 
 local localPlayer = players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -17,6 +18,10 @@ local existingGui = targetParent:FindFirstChild("EmoteWheelGui")
 if existingGui then
 	existingGui:Destroy()
 end
+
+pcall(function()
+	runService:UnbindFromRenderStep("EmoteWheelBypass")
+end)
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "EmoteWheelGui"
@@ -43,6 +48,7 @@ centerButton.TextSize = 13
 centerButton.Font = Enum.Font.GothamBold
 centerButton.Text = "Stop"
 centerButton.AutoButtonColor = false
+centerButton.Modal = true
 centerButton.Parent = wheelFrame
 
 local centerCorner = Instance.new("UICorner")
@@ -55,20 +61,47 @@ centerStroke.Thickness = 2
 centerStroke.Parent = centerButton
 
 local emoteWheel = {}
-local activeTracks = {} 
+local activeTracks = {}
+local isDancing = false
+
+local function getMyRig()
+	local rigsFolder = workspace:FindFirstChild("Rigs")
+	if rigsFolder then
+		return rigsFolder:FindFirstChild(localPlayer.Name)
+	end
+	return nil
+end
+
+local function setRigVisibility(visible)
+	local myRig = getMyRig()
+	if myRig then
+		for _, part in ipairs(myRig:GetDescendants()) do
+			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+				part.LocalTransparencyModifier = visible and 0 or 1
+			end
+		end
+	end
+end
+
+local function restoreMouseLock()
+	userInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	userInputService.MouseIconEnabled = false
+end
 
 local function stopActiveEmote()
+	isDancing = false
 	for _, track in ipairs(activeTracks) do
 		if track then
 			track:Stop(0.15)
 		end
 	end
 	table.clear(activeTracks)
+	setRigVisibility(false)
 end
 
 local function playEmoteAnim(animId)
 	stopActiveEmote()
-	
+
 	local fullId = string.find(tostring(animId), "rbxassetid://") and tostring(animId) or ("rbxassetid://" .. tostring(animId))
 	local anim = Instance.new("Animation")
 	anim.AnimationId = fullId
@@ -77,12 +110,12 @@ local function playEmoteAnim(animId)
 		if not model then return end
 		local humanoid = model:FindFirstChildOfClass("Humanoid")
 		local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-		
+
 		if animator then
 			local success, track = pcall(function()
 				return animator:LoadAnimation(anim)
 			end)
-			
+
 			if success and track then
 				track.Priority = Enum.AnimationPriority.Action4
 				track:Play(0.1)
@@ -92,15 +125,55 @@ local function playEmoteAnim(animId)
 	end
 
 	runOnModel(localPlayer.Character)
+	runOnModel(getMyRig())
 
-	local rigsFolder = workspace:FindFirstChild("Rigs")
-	if rigsFolder then
-		local myRig = rigsFolder:FindFirstChild(localPlayer.Name)
-		if myRig then
-			runOnModel(myRig)
-		end
+	if #activeTracks > 0 then
+		isDancing = true
 	end
 end
+
+runService:BindToRenderStep("EmoteWheelBypass", Enum.RenderPriority.Last.Value, function()
+	if wheelFrame.Visible then
+		userInputService.MouseBehavior = Enum.MouseBehavior.Default
+		userInputService.MouseIconEnabled = true
+	end
+
+	if isDancing then
+		local stillPlaying = false
+		for _, track in ipairs(activeTracks) do
+			if track.IsPlaying then
+				stillPlaying = true
+				break
+			end
+		end
+
+		if not stillPlaying then
+			stopActiveEmote()
+			return
+		end
+
+		setRigVisibility(true)
+
+		local cam = workspace.CurrentCamera
+		if cam then
+			local startPos = cam.CFrame.Position
+			local targetOffset = cam.CFrame.LookVector * -7.5
+			local rayParams = RaycastParams.new()
+			rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+			local ignoreList = {localPlayer.Character, getMyRig()}
+			rayParams.FilterDescendantsInstances = ignoreList
+
+			local result = workspace:Raycast(startPos, targetOffset, rayParams)
+			if result then
+				local safeDist = (result.Position - startPos).Magnitude - 0.5
+				cam.CFrame = cam.CFrame + (cam.CFrame.LookVector * -math.max(0, safeDist))
+			else
+				cam.CFrame = cam.CFrame + targetOffset
+			end
+		end
+	end
+end)
 
 local function clearWheel()
 	for index, child in ipairs(wheelFrame:GetChildren()) do
@@ -166,10 +239,11 @@ local function renderSlots(emotesList)
 		end)
 
 		slot.MouseButton1Click:Connect(function()
+			wheelFrame.Visible = false
+			restoreMouseLock()
 			if data.animId then
 				playEmoteAnim(data.animId)
 			end
-			wheelFrame.Visible = false
 		end)
 	end
 end
@@ -181,20 +255,20 @@ local function toggleWheel()
 		tweenService:Create(wheelFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			Size = UDim2.new(0, 360, 0, 360)
 		}):Play()
+	else
+		restoreMouseLock()
 	end
 end
 
 centerButton.MouseButton1Click:Connect(function()
 	stopActiveEmote()
 	wheelFrame.Visible = false
+	restoreMouseLock()
 end)
 
 userInputService.InputBegan:Connect(function(input, gameProcessed)
-	if input.KeyCode == Enum.KeyCode.Space then
-		stopActiveEmote()
-	end
 	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.G then
+	if input.KeyCode == Enum.KeyCode.N then
 		toggleWheel()
 	end
 end)
@@ -212,6 +286,11 @@ function emoteWheel.stop()
 end
 
 function emoteWheel.destroy()
+	stopActiveEmote()
+	restoreMouseLock()
+	pcall(function()
+		runService:UnbindFromRenderStep("EmoteWheelBypass")
+	end)
 	screenGui:Destroy()
 end
 
