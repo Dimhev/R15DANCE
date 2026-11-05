@@ -55,31 +55,51 @@ centerStroke.Thickness = 2
 centerStroke.Parent = centerButton
 
 local emoteWheel = {}
-local activeTrack = nil
+local activeTracks = {} 
 
 local function stopActiveEmote()
-	if activeTrack then
-		activeTrack:Stop(0.15)
-		activeTrack = nil
+	for _, track in ipairs(activeTracks) do
+		if track then
+			track:Stop(0.15)
+		end
 	end
+	table.clear(activeTracks)
 end
 
 local function playEmoteAnim(animId)
 	stopActiveEmote()
-	local character = localPlayer.Character
-	if not character then return end
-	local humanoid = character:FindFirstChild("Humanoid")
-	if not humanoid then return end
-	local animator = humanoid:FindFirstChild("Animator")
-	if not animator then return end
-
+	
 	local fullId = string.find(tostring(animId), "rbxassetid://") and tostring(animId) or ("rbxassetid://" .. tostring(animId))
 	local anim = Instance.new("Animation")
 	anim.AnimationId = fullId
-	local track = animator:LoadAnimation(anim)
-	track.Priority = Enum.AnimationPriority.Action4
-	track:Play(0.1)
-	activeTrack = track
+
+	local function runOnModel(model)
+		if not model then return end
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+		
+		if animator then
+			local success, track = pcall(function()
+				return animator:LoadAnimation(anim)
+			end)
+			
+			if success and track then
+				track.Priority = Enum.AnimationPriority.Action4
+				track:Play(0.1)
+				table.insert(activeTracks, track)
+			end
+		end
+	end
+
+	runOnModel(localPlayer.Character)
+
+	local rigsFolder = workspace:FindFirstChild("Rigs")
+	if rigsFolder then
+		local myRig = rigsFolder:FindFirstChild(localPlayer.Name)
+		if myRig then
+			runOnModel(myRig)
+		end
+	end
 end
 
 local function clearWheel()
